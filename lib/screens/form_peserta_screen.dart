@@ -17,6 +17,8 @@ class _FormPesertaScreenState extends State<FormPesertaScreen> {
   late TextEditingController _nikController;
   late TextEditingController _namaController;
   late TextEditingController _alamatController;
+  late TextEditingController _tglLahirController; // [BARU] Controller Tanggal
+
   String _status = 'Proses';
   final List<String> _statusOptions = ['Aktif', 'Tidak Aktif', 'Proses'];
 
@@ -26,8 +28,28 @@ class _FormPesertaScreenState extends State<FormPesertaScreen> {
     _nikController = TextEditingController(text: widget.peserta?.nik ?? '');
     _namaController = TextEditingController(text: widget.peserta?.nama ?? '');
     _alamatController = TextEditingController(text: widget.peserta?.alamat ?? '');
+    // [BARU] Isi tanggal jika edit
+    _tglLahirController = TextEditingController(text: widget.peserta?.tanggalLahir ?? '');
+    
     if (widget.peserta != null) {
       _status = widget.peserta!.status;
+    }
+  }
+
+  // [BARU] Fungsi Memunculkan Kalender
+  Future<void> _selectDate(BuildContext context) async {
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(), // Tanggal awal yang muncul
+      firstDate: DateTime(1900),   // Tahun paling lama
+      lastDate: DateTime.now(),    // Tidak boleh pilih tanggal masa depan
+    );
+
+    if (picked != null) {
+      setState(() {
+        // Format tanggal sederhana: DD-MM-YYYY
+        _tglLahirController.text = "${picked.day}-${picked.month}-${picked.year}";
+      });
     }
   }
 
@@ -39,6 +61,7 @@ class _FormPesertaScreenState extends State<FormPesertaScreen> {
         nama: _namaController.text,
         alamat: _alamatController.text,
         status: _status,
+        tanggalLahir: _tglLahirController.text, // [BARU] Simpan tanggal
       );
 
       try {
@@ -75,18 +98,36 @@ class _FormPesertaScreenState extends State<FormPesertaScreen> {
                 validator: (v) => v!.length != 16 ? 'Wajib 16 digit' : null,
               ),
               SizedBox(height: 16),
+              
               TextFormField(
                 controller: _namaController,
-                decoration: InputDecoration(labelText: 'Nama', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: 'Nama Lengkap', border: OutlineInputBorder()),
                 validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
               ),
               SizedBox(height: 16),
+
+              // [BARU] Input Tanggal Lahir dengan Kalender
+              TextFormField(
+                controller: _tglLahirController,
+                readOnly: true, // Agar keyboard tidak muncul saat diklik
+                decoration: InputDecoration(
+                  labelText: 'Tanggal Lahir',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.calendar_today), // Ikon Kalender
+                  hintText: 'Pilih Tanggal',
+                ),
+                onTap: () => _selectDate(context), // Munculkan kalender saat diklik
+                validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
+              ),
+              SizedBox(height: 16),
+
               TextFormField(
                 controller: _alamatController,
                 decoration: InputDecoration(labelText: 'Alamat', border: OutlineInputBorder()),
                 validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
               ),
               SizedBox(height: 16),
+              
               DropdownButtonFormField<String>(
                 value: _status,
                 items: _statusOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
@@ -94,6 +135,7 @@ class _FormPesertaScreenState extends State<FormPesertaScreen> {
                 decoration: InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
               ),
               SizedBox(height: 24),
+              
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

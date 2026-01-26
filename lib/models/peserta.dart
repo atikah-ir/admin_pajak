@@ -4,6 +4,7 @@ class Peserta {
   String nama;
   String alamat;
   String status;
+  String tanggalLahir;
 
   Peserta({
     this.id,
@@ -11,6 +12,7 @@ class Peserta {
     required this.nama,
     required this.alamat,
     required this.status,
+    required this.tanggalLahir,
   });
 
   factory Peserta.fromMap(Map<String, dynamic> map) {
@@ -20,6 +22,7 @@ class Peserta {
       nama: map['nama'],
       alamat: map['alamat'],
       status: map['status'],
+      tanggalLahir: map['tanggal_lahir'] ?? '',
     );
   }
 
@@ -30,6 +33,7 @@ class Peserta {
       'nama': nama,
       'alamat': alamat,
       'status': status,
+      'tanggal_lahir': tanggalLahir,
     };
     // Hanya masukkan ID jika tidak null (untuk update)
     // Jika null (create), biarkan SQLite yang bikin ID otomatis
