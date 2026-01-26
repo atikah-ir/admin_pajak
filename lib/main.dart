@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
-// [UBAHAN WEB] Import library khusus Web & Foundation
 import 'package:flutter/foundation.dart'; 
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:sqflite/sqflite.dart';
-
-import 'screens/home_screen.dart';
+import 'screens/login_screen.dart'; // Panggil halaman login
 
 void main() {
-  // [UBAHAN WEB] Inisialisasi Database Factory sebelum aplikasi jalan
-  // Kode ini akan dieksekusi HANYA jika dijalankan di Browser
+  // Setup Database untuk Web
   if (kIsWeb) {
     databaseFactory = databaseFactoryFfiWeb;
   }
-
   runApp(MyApp());
 }
 
@@ -26,7 +22,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.indigo,
         useMaterial3: false,
       ),
-      home: HomeScreen(),
+      home: LoginScreen(), // Masuk ke Login dulu
     );
   }
 }

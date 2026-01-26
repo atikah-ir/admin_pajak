@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../models/peserta.dart';
 import 'form_peserta_screen.dart';
+import 'login_screen.dart'; // Import login agar bisa logout
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -9,11 +10,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Master data
   List<Peserta> _allPeserta = [];
-  // Data yang ditampilkan (setelah filter)
   List<Peserta> _displayedPeserta = [];
-  
   bool _isLoading = true;
   String _selectedFilter = 'Semua';
 
@@ -28,10 +26,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final data = await DatabaseHelper.instance.readAllPeserta();
     setState(() {
       _allPeserta = data;
-      _displayedPeserta = data; 
+      _displayedPeserta = data;
       _isLoading = false;
     });
-    // Terapkan ulang filter jika ada
     _applyFilter(_selectedFilter);
   }
 
@@ -46,15 +43,10 @@ class _HomeScreenState extends State<HomeScreen> {
               user.nik.contains(keyword))
           .toList();
     }
-    
-    // Tetap jaga filter status
     if (_selectedFilter != 'Semua') {
       results = results.where((user) => user.status == _selectedFilter).toList();
     }
-
-    setState(() {
-      _displayedPeserta = results;
-    });
+    setState(() => _displayedPeserta = results);
   }
 
   void _applyFilter(String status) {
@@ -73,11 +65,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _deletePeserta(int id) async {
     await DatabaseHelper.instance.delete(id);
     _refreshData();
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Data berhasil dihapus')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Data dihapus')));
   }
 
-  // Widget Kotak Statistik
+  // --- WIDGETS ---
   Widget _buildStatCard(String title, int count, Color color, IconData icon) {
     return Expanded(
       child: Container(
@@ -87,27 +78,18 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withOpacity(0.5)),
-          boxShadow: [
-            BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
-          ],
         ),
         child: Column(
           children: [
             Icon(icon, color: color, size: 28),
-            SizedBox(height: 4),
-            Text(count.toString(),
-                style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-            Text(title, 
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                textAlign: TextAlign.center),
+            Text(count.toString(), style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+            Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[700]), textAlign: TextAlign.center),
           ],
         ),
       ),
     );
   }
 
-  // Widget Tombol Filter
   Widget _buildFilterChip(String label) {
     bool isSelected = _selectedFilter == label;
     return Padding(
@@ -115,19 +97,9 @@ class _HomeScreenState extends State<HomeScreen> {
       child: ChoiceChip(
         label: Text(label),
         selected: isSelected,
-        onSelected: (bool selected) {
-          _applyFilter(label);
-        },
+        onSelected: (bool selected) => _applyFilter(label),
         selectedColor: Colors.indigo,
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : Colors.black87,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
-        ),
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.grey.shade300)
-        ),
+        labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87),
       ),
     );
   }
@@ -139,15 +111,40 @@ class _HomeScreenState extends State<HomeScreen> {
     int proses = _allPeserta.where((e) => e.status == 'Proses').length;
 
     return Scaffold(
-      backgroundColor: Colors.grey[100], 
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: Text('Dashboard Admin'),
         centerTitle: true,
         backgroundColor: Colors.indigo,
+        // TOMBOL LOGOUT
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text('Logout'),
+                  content: Text('Keluar dari aplikasi?'),
+                  actions: [
+                    TextButton(child: Text('Batal'), onPressed: () => Navigator.of(ctx).pop()),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      child: Text('Keluar'),
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          )
+        ],
       ),
       body: Column(
         children: [
-          // 1. STATISTIK
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
@@ -158,8 +155,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
-          // 2. SEARCH & FILTER
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
@@ -167,12 +162,11 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 TextField(
                   decoration: InputDecoration(
-                    hintText: 'Cari NIK atau Nama...',
+                    hintText: 'Cari NIK/Nama...',
                     prefixIcon: Icon(Icons.search),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     filled: true,
                     fillColor: Colors.white,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16),
                   ),
                   onChanged: _runSearch,
                 ),
@@ -191,10 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
           SizedBox(height: 10),
-
-          // 3. LIST DATA
           Expanded(
             child: _isLoading
                 ? Center(child: CircularProgressIndicator())
@@ -205,44 +196,30 @@ class _HomeScreenState extends State<HomeScreen> {
                         itemCount: _displayedPeserta.length,
                         itemBuilder: (context, index) {
                           final item = _displayedPeserta[index];
-                          Color colorStatus = Colors.grey;
-                          if (item.status == 'Aktif') colorStatus = Colors.green;
-                          if (item.status == 'Proses') colorStatus = Colors.orange;
-                          if (item.status == 'Tidak Aktif') colorStatus = Colors.red;
+                          Color color = Colors.grey;
+                          if (item.status == 'Aktif') color = Colors.green;
+                          if (item.status == 'Proses') color = Colors.orange;
+                          if (item.status == 'Tidak Aktif') color = Colors.red;
 
                           return Card(
                             margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                            elevation: 2,
                             child: ListTile(
                               leading: CircleAvatar(
-                                backgroundColor: colorStatus.withOpacity(0.2),
-                                child: Text(item.nama[0].toUpperCase(),
-                                    style: TextStyle(color: colorStatus, fontWeight: FontWeight.bold)),
+                                backgroundColor: color.withOpacity(0.2),
+                                child: Text(item.nama[0].toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold)),
                               ),
                               title: Text(item.nama, style: TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(item.nik),
-                                  Container(
-                                    margin: EdgeInsets.only(top: 4),
-                                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: colorStatus.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: colorStatus.withOpacity(0.5))
-                                    ),
-                                    child: Text(item.status, 
-                                      style: TextStyle(fontSize: 10, color: colorStatus, fontWeight: FontWeight.bold)),
-                                  )
+                                  Text(item.status, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
                                 ],
                               ),
-                              // Titik tiga (Edit/Hapus)
                               trailing: PopupMenuButton(
-                                onSelected: (value) {
-                                  if (value == 'edit') {
-                                    Navigator.push(context, MaterialPageRoute(builder: (_) => FormPesertaScreen(peserta: item)))
-                                        .then((v) { if(v==true) _refreshData(); });
+                                onSelected: (val) {
+                                  if (val == 'edit') {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => FormPesertaScreen(peserta: item))).then((_) => _refreshData());
                                   } else {
                                     _deletePeserta(item.id!);
                                   }
