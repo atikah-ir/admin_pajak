@@ -1,3 +1,9 @@
+plugins {
+    // Tetap pertahankan Google Services & Kotlin dengan versi yang diminta sistemmu
+    id("com.google.gms.google-services") version "4.3.15" apply false
+    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+}
+
 allprojects {
     repositories {
         google()
@@ -15,6 +21,7 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
 }

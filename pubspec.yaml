@@ -14,6 +14,8 @@ dependencies:
   path: ^1.9.0
   sqflite_common_ffi_web: ^0.4.0
   cupertino_icons: ^1.0.2
+  firebase_core: ^3.10.1
+  cloud_firestore: ^5.6.1
 
   # Library Excel & Share
   excel: ^4.0.2

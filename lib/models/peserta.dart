@@ -1,10 +1,11 @@
 class Peserta {
-  int? id;
-  String nik;
-  String nama;
-  String alamat;
-  String status;
-  String tanggalLahir;
+  // id diubah jadi String agar bisa menampung ID unik dari Firebase
+  String? id; 
+  final String nik;
+  final String nama;
+  final String alamat;
+  final String status;
+  final String tanggalLahir;
 
   Peserta({
     this.id,
@@ -15,31 +16,26 @@ class Peserta {
     required this.tanggalLahir,
   });
 
-  factory Peserta.fromMap(Map<String, dynamic> map) {
-    return Peserta(
-      id: map['id'],
-      nik: map['nik'],
-      nama: map['nama'],
-      alamat: map['alamat'],
-      status: map['status'],
-      tanggalLahir: map['tanggal_lahir'] ?? '',
-    );
-  }
-
-  // [PERBAIKAN DISINI]
+  // Untuk Mengubah Objek Peserta menjadi Map (sebelum dikirim ke Internet)
   Map<String, dynamic> toMap() {
-    var map = <String, dynamic>{
+    return {
       'nik': nik,
       'nama': nama,
       'alamat': alamat,
       'status': status,
-      'tanggal_lahir': tanggalLahir,
+      'tanggal_lahir': tanggalLahir, // Gunakan underscore agar rapi di Firestore
     };
-    // Hanya masukkan ID jika tidak null (untuk update)
-    // Jika null (create), biarkan SQLite yang bikin ID otomatis
-    if (id != null) {
-      map['id'] = id;
-    }
-    return map;
+  }
+
+  // Untuk Mengubah Data dari Internet (Map) menjadi Objek Peserta
+  factory Peserta.fromMap(Map<String, dynamic> map, String docId) {
+    return Peserta(
+      id: docId, // Kita ambil ID dokumen dari Firestore
+      nik: map['nik'] ?? '',
+      nama: map['nama'] ?? '',
+      alamat: map['alamat'] ?? '',
+      status: map['status'] ?? '',
+      tanggalLahir: map['tanggal_lahir'] ?? '',
+    );
   }
 }

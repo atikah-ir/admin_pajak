@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // [BARU] Import ini untuk fitur keluar aplikasi secara sistem
-import '../excel_service.dart'; // [BARU] Import service excel
-import '../database/db_helper.dart';
-import '../models/peserta.dart';
-import 'form_peserta_screen.dart';
-import 'login_screen.dart'; 
+import 'package:flutter/services.dart';
+import 'package:administrasi_peserta/excel_service.dart';
+import 'package:administrasi_peserta/models/peserta.dart';
+import 'package:administrasi_peserta/database/firestore_service.dart';
+import 'package:administrasi_peserta/screens/form_peserta_screen.dart';
+import 'package:administrasi_peserta/screens/login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -12,68 +12,19 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<Peserta> _allPeserta = [];
-  List<Peserta> _displayedPeserta = [];
-  bool _isLoading = true;
   String _selectedFilter = 'Semua';
-
-  // [BARU] Variabel untuk mencatat waktu terakhir tombol back ditekan
+  String _searchQuery = ''; 
   DateTime? _lastPressedAt;
 
-  @override
-  void initState() {
-    super.initState();
-    _refreshData();
+  // Fungsi Hapus Real-time
+  Future<void> _deletePeserta(String id) async {
+    await FirestoreService().deletePeserta(id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Data berhasil dihapus dari internet'))
+    );
   }
 
-  Future<void> _refreshData() async {
-    setState(() => _isLoading = true);
-    final data = await DatabaseHelper.instance.readAllPeserta();
-    setState(() {
-      _allPeserta = data;
-      _displayedPeserta = data;
-      _isLoading = false;
-    });
-    _applyFilter(_selectedFilter);
-  }
-
-  void _runSearch(String keyword) {
-    List<Peserta> results = [];
-    if (keyword.isEmpty) {
-      results = _allPeserta;
-    } else {
-      results = _allPeserta
-          .where((user) =>
-              user.nama.toLowerCase().contains(keyword.toLowerCase()) ||
-              user.nik.contains(keyword))
-          .toList();
-    }
-    if (_selectedFilter != 'Semua') {
-      results = results.where((user) => user.status == _selectedFilter).toList();
-    }
-    setState(() => _displayedPeserta = results);
-  }
-
-  void _applyFilter(String status) {
-    List<Peserta> results = [];
-    if (status == 'Semua') {
-      results = _allPeserta;
-    } else {
-      results = _allPeserta.where((user) => user.status == status).toList();
-    }
-    setState(() {
-      _selectedFilter = status;
-      _displayedPeserta = results;
-    });
-  }
-
-  Future<void> _deletePeserta(int id) async {
-    await DatabaseHelper.instance.delete(id);
-    _refreshData();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Data dihapus')));
-  }
-
-  // --- WIDGETS ---
+  // Desain Kartu Statistik
   Widget _buildStatCard(String title, int count, Color color, IconData icon) {
     return Expanded(
       child: Container(
@@ -82,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
           border: Border.all(color: color.withOpacity(0.5)),
         ),
         child: Column(
@@ -95,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Desain Filter Chip
   Widget _buildFilterChip(String label) {
     bool isSelected = _selectedFilter == label;
     return Padding(
@@ -102,7 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
       child: ChoiceChip(
         label: Text(label),
         selected: isSelected,
-        onSelected: (bool selected) => _applyFilter(label),
+        onSelected: (bool selected) {
+          setState(() => _selectedFilter = label);
+        },
         selectedColor: Colors.indigo,
         labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87),
       ),
@@ -111,142 +66,114 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    int total = _allPeserta.length;
-    int aktif = _allPeserta.where((e) => e.status == 'Aktif').length;
-    int proses = _allPeserta.where((e) => e.status == 'Proses').length;
-
-    // [BARU] Membungkus Scaffold dengan PopScope untuk fitur Double Back to Exit
     return PopScope(
-      canPop: false, // Menahan agar tidak langsung keluar
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-
         final now = DateTime.now();
-        final backButtonHasNotBeenPressedOrSnackBarHasClosed =
-            _lastPressedAt == null || now.difference(_lastPressedAt!) > Duration(seconds: 2);
-
-        if (backButtonHasNotBeenPressedOrSnackBarHasClosed) {
+        if (_lastPressedAt == null || now.difference(_lastPressedAt!) > Duration(seconds: 2)) {
           _lastPressedAt = now;
-          // Munculkan pesan peringatan
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Tekan sekali lagi untuk keluar'),
-              duration: Duration(seconds: 2),
-              backgroundColor: Colors.black87,
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Tekan sekali lagi untuk keluar')));
         } else {
-          // Jika ditekan kedua kalinya dalam waktu < 2 detik, aplikasi tertutup
           SystemNavigator.pop();
         }
       },
       child: Scaffold(
         backgroundColor: Colors.grey[100],
         appBar: AppBar(
-          title: Text('Dashboard Admin'),
+          title: Text('Dashboard Online'),
           centerTitle: true,
           backgroundColor: Colors.indigo,
           actions: [
-            // [BARU] Tombol Export Excel
-            IconButton(
-              icon: Icon(Icons.file_download),
-              tooltip: 'Export Excel',
-              onPressed: () async {
-                if (_allPeserta.isNotEmpty) {
-                  // Tampilkan loading sebentar jika data banyak
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Sedang menyiapkan file Excel...'), duration: Duration(seconds: 1)),
-                  );
-                  
-                  // Panggil fungsi export
-                  await ExcelService.exportPesertaToExcel(_allPeserta);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Tidak ada data untuk diexport')),
-                  );
-                }
-              },
-            ),
-            
-            // TOMBOL LOGOUT
             IconButton(
               icon: Icon(Icons.logout),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: Text('Logout'),
-                    content: Text('Keluar dari aplikasi?'),
-                    actions: [
-                      TextButton(child: Text('Batal'), onPressed: () => Navigator.of(ctx).pop()),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                        child: Text('Keluar'),
-                        onPressed: () {
-                          Navigator.of(ctx).pop();
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              },
+              onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen())),
             )
           ],
         ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Row(
-                children: [
-                  _buildStatCard('Total', total, Colors.blue, Icons.folder),
-                  _buildStatCard('Aktif', aktif, Colors.green, Icons.check_circle),
-                  _buildStatCard('Proses', proses, Colors.orange, Icons.hourglass_top),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Cari NIK/Nama...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    onChanged: _runSearch,
+        body: StreamBuilder<List<Peserta>>(
+          stream: FirestoreService().getPesertaStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            }
+
+            final allData = snapshot.data ?? [];
+            
+            // Hitung Statistik Otomatis dari Internet
+            int total = allData.length;
+            int aktif = allData.where((e) => e.status == 'Aktif').length;
+            int proses = allData.where((e) => e.status == 'Proses').length;
+
+            // Logika Search & Filter
+            List<Peserta> filteredData = allData.where((p) {
+              bool matchFilter = _selectedFilter == 'Semua' || p.status == _selectedFilter;
+              bool matchSearch = p.nama.toLowerCase().contains(_searchQuery.toLowerCase()) || p.nik.contains(_searchQuery);
+              return matchFilter && matchSearch;
+            }).toList();
+
+            return Column(
+              children: [
+                // Tombol Export Excel
+                Container(
+                  width: double.infinity,
+                  color: Colors.indigo,
+                  child: TextButton.icon(
+                    onPressed: () => ExcelService.exportPesertaToExcel(allData),
+                    icon: Icon(Icons.file_download, color: Colors.white),
+                    label: Text("DOWNLOAD LAPORAN EXCEL", style: TextStyle(color: Colors.white)),
                   ),
-                  SizedBox(height: 10),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildFilterChip('Semua'),
-                        _buildFilterChip('Aktif'),
-                        _buildFilterChip('Proses'),
-                        _buildFilterChip('Tidak Aktif'),
-                      ],
-                    ),
+                ),
+
+                // Area Statistik
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    children: [
+                      _buildStatCard('Total', total, Colors.blue, Icons.folder),
+                      _buildStatCard('Aktif', aktif, Colors.green, Icons.check_circle),
+                      _buildStatCard('Proses', proses, Colors.orange, Icons.hourglass_top),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            SizedBox(height: 10),
-            Expanded(
-              child: _isLoading
-                  ? Center(child: CircularProgressIndicator())
-                  : _displayedPeserta.isEmpty
+                ),
+
+                // Area Search & Filter
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    children: [
+                      TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Cari NIK atau Nama...',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        onChanged: (val) => setState(() => _searchQuery = val),
+                      ),
+                      SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: ['Semua', 'Aktif', 'Proses', 'Tidak Aktif'].map(_buildFilterChip).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 10),
+
+                // Daftar Peserta
+                Expanded(
+                  child: filteredData.isEmpty
                       ? Center(child: Text("Data tidak ditemukan"))
                       : ListView.builder(
                           padding: EdgeInsets.only(bottom: 80),
-                          itemCount: _displayedPeserta.length,
+                          itemCount: filteredData.length,
                           itemBuilder: (context, index) {
-                            final item = _displayedPeserta[index];
+                            final item = filteredData[index];
                             Color color = Colors.grey;
                             if (item.status == 'Aktif') color = Colors.green;
                             if (item.status == 'Proses') color = Colors.orange;
@@ -254,46 +181,41 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             return Card(
                               margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              elevation: 2,
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: color.withOpacity(0.2),
+                                  backgroundColor: color.withOpacity(0.1),
                                   child: Text(item.nama[0].toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold)),
                                 ),
                                 title: Text(item.nama, style: TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(item.nik),
-                                    Text(item.status, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
+                                subtitle: Text("${item.nik}\nStatus: ${item.status}"),
+                                isThreeLine: true,
                                 trailing: PopupMenuButton(
                                   onSelected: (val) {
                                     if (val == 'edit') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => FormPesertaScreen(peserta: item))).then((_) => _refreshData());
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => FormPesertaScreen(peserta: item)));
                                     } else {
                                       _deletePeserta(item.id!);
                                     }
                                   },
                                   itemBuilder: (ctx) => [
-                                    PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                    PopupMenuItem(value: 'delete', child: Text('Hapus')),
+                                    PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Edit')])),
+                                    PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: Colors.red, size: 18), SizedBox(width: 8), Text('Hapus', style: TextStyle(color: Colors.red))])),
                                   ],
                                 ),
                               ),
                             );
                           },
                         ),
-            ),
-          ],
+                ),
+              ],
+            );
+          },
         ),
         floatingActionButton: FloatingActionButton(
           backgroundColor: Colors.indigo,
           child: Icon(Icons.add),
-          onPressed: () async {
-            final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => FormPesertaScreen()));
-            if (res == true) _refreshData();
-          },
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FormPesertaScreen())),
         ),
       ),
     );
